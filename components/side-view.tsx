@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { LoaderCircle, RotateCw } from 'lucide-react'
+import { Dispatch, SetStateAction, useState } from 'react'
+import { Download, LoaderCircle, RotateCw } from 'lucide-react'
 
 import { ArtifactView } from '@/components/artifact-view'
 import { CodeView } from '@/components/code-view'
@@ -17,12 +17,16 @@ import { ExecutionResult } from '@/app/api/sandbox/route'
 
 export function SideView({
   // userID,
+  selectedTab,
+  onSelectedTabChange,
   isLoading,
   artifact,
   result,
   selectedTemplate,
 }: {
   // userID: string
+  selectedTab: 'code' | 'artifact'
+  onSelectedTabChange: Dispatch<SetStateAction<"code" | "artifact">>
   isLoading: boolean
   artifact?: ArtifactSchema
   result?: ExecutionResult
@@ -49,12 +53,25 @@ export function SideView({
       })
   }
 
+  function download (filename: string, content: string) {
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.style.display = 'none'
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  }
+
   return (
-    <div className="flex-1 flex flex-col shadow-2xl rounded-lg border border-[#FFE7CC] bg-white max-w-[800px]">
-      <Tabs defaultValue="code" className="h-full max-h-full overflow-hidden flex flex-col items-start justify-start">
-        <div className="w-full p-2 grid grid-cols-3 items-center justify-end bg-[#FAFAFA] rounded-t-lg border-b border-[#FFE7CC]">
+    <div className="flex-1 flex flex-col shadow-2xl rounded-lg border max-w-[800px] bg-popover">
+      <Tabs value={selectedTab} onValueChange={(value) => onSelectedTabChange(value as 'code' | 'artifact')} className="h-full max-h-full overflow-hidden flex flex-col items-start justify-start">
+        <div className="w-full p-2 grid grid-cols-3 items-center justify-end rounded-t-lg border-b">
           <div className='flex justify-start'>
-            {isLoading && <LoaderCircle className="h-4 w-4 text-black/15 animate-spin" />}
+            {isLoading && <LoaderCircle className="h-4 w-4 text-[#a1a1aa] animate-spin" />}
           </div>
 
           <div className='flex justify-center'>
@@ -65,17 +82,17 @@ export function SideView({
           </div>
           <div className='flex items-center justify-end space-x-2'>
           {result && (
-            <Button disabled={!isLinkAvailable} variant="outline" className='h-8 rounded-md px-3' onClick={() => refreshIframe()}>
+            <Button disabled={!isLinkAvailable} variant="ghost" className='h-8 rounded-md px-3 text-muted-foreground' title='Refresh' onClick={() => refreshIframe()}>
               <RotateCw className="h-4 w-4" />
             </Button>
           )}
           {result && (
-            <Button disabled={!isLinkAvailable} variant="outline" className='h-8 rounded-md px-3' onClick={() => copy(result.url!)}>
-              <Link className="h-4 w-4" />
+            <Button disabled={!isLinkAvailable} variant="ghost" className='h-8 rounded-md px-3 text-muted-foreground' title='Download Artifact' onClick={() => download(artifact.file_path, artifact.code)}>
+              <Download className="h-4 w-4" />
             </Button>
           )}
           {result && (
-            <Button variant="outline" className='h-8 rounded-md px-3' onClick={() => copy(artifact.code)}>
+            <Button variant="ghost" className='h-8 rounded-md px-3 text-muted-foreground' title='Copy URL' onClick={() => copy(result.url!)}>
               <Copy className="h-4 w-4" />
             </Button>
           )}
@@ -89,7 +106,7 @@ export function SideView({
           <div className="w-full flex-1 flex flex-col items-start justify-start overflow-y-auto">
             <TabsContent value="code" className="flex-1 w-full">
               {artifact.code &&
-                <CodeView code={artifact.code} template={artifact.template as TemplateId}/>
+                <CodeView code={artifact.code} lang={artifact.file_path?.split('.').pop() || ''}/>
               }
             </TabsContent>
             <TabsContent value="artifact" className="flex-1 w-full flex flex-col items-start justify-start">

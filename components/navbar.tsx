@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from '@/components/ui/separator'
-import { GithubIcon, LogOut, Settings2, Sparkles } from 'lucide-react'
+import { GithubIcon, LogOut, Plus, Settings2, Sparkles } from 'lucide-react'
 
 import {
   Select,
@@ -39,6 +39,7 @@ export default function NavBar({
   apiKeyConfigurable,
   baseURLConfigurable,
   onGitHubClick,
+  onNewChat
 }: {
   session: Session | null,
   showLogin: () => void,
@@ -52,14 +53,15 @@ export default function NavBar({
   apiKeyConfigurable: boolean,
   baseURLConfigurable: boolean,
   onGitHubClick: () => void,
+  onNewChat: () => void,
 }) {
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-white">
+    <nav className="fixed top-0 left-0 right-0 bg-background">
       <div className="flex px-4 py-2">
         <div className="flex flex-1 items-center">
           <Link href="/" className="flex items-center gap-2" target="_blank">
             <Image src="/logo.svg" alt="logo" width={30} height={30} />
-            <h1 className="whitespace-pre text-[#3d3929]">AI Artifacts by </h1>
+            <h1 className="whitespace-pre">AI Artifacts by </h1>
           </Link>
           <Link href="https://e2b.dev" className="underline decoration-[#ff8800] decoration-2 text-[#ff8800]" target="_blank">E2B</Link>
         </div>
@@ -70,19 +72,19 @@ export default function NavBar({
           <Separator orientation="vertical" />
           {session ? (
             <div className="flex items-center">
-              <span className="text-sm text-[#3d3929] font-medium">{session.user.email}</span>
+              <span className="text-sm font-medium">{session.user.email}</span>
               <Button variant="link" size="icon" onClick={signOut}>
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
           ) : (
-            <Button variant="outline" size="icon" className="text-sm text-[#3d3929] font-medium px-8 py-2" onClick={showLogin}>
+            <Button variant="default" size="icon" className="text-sm font-medium px-8 py-2" onClick={showLogin}>
               Sign in
             </Button>
           )}
         </div>
       </div>
-      <div className="flex items-end border-b border-gray-300 px-4 py-2 space-x-2">
+      <div className="flex w-full items-end border-b px-4 py-2 space-x-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="template">Persona</Label>
           <Select name="template" defaultValue={selectedTemplate} onValueChange={onSelectedTemplateChange}>
@@ -94,7 +96,7 @@ export default function NavBar({
                 <SelectLabel>Persona</SelectLabel>
                 <SelectItem value="auto">
                   <div className="flex items-center space-x-2">
-                    <Sparkles className="flex" width={16} height={16} />
+                    <Sparkles className="flex text-[#a1a1aa]" width={16} height={16} />
                     <span>Auto</span>
                   </div>
                 </SelectItem>
@@ -255,6 +257,9 @@ export default function NavBar({
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
+        <Button variant='secondary' className="!ml-auto" onClick={onNewChat}>
+          <Plus className="mr-2 h-4 w-4" /> New chat
+        </Button>
       </div>
     </nav>
   )

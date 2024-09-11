@@ -12,7 +12,8 @@ import NavBar from '@/components/navbar'
 
 import { supabase } from '@/lib/supabase'
 import { AuthDialog } from '@/components/AuthDialog'
-import { useAuth } from '@/lib/auth'
+import { AuthViewType, useAuth } from '@/lib/auth'
+import { Message, toAISDKMessages, toMessageImage } from '@/lib/messages'
 
 import { LLMModel, LLMModelConfig } from '@/lib/models'
 import modelsList from '@/lib/models.json'
@@ -20,18 +21,9 @@ import templates, { TemplateId } from '@/lib/templates';
 
 import { ExecutionResult } from './api/sandbox/route';
 
-export type Message = {
-  // id: string
-  role: 'user' | 'assistant'
-  content: string
-  meta?: {
-    title?: string
-    description?: string
-  }
-}
-
 export default function Home() {
   const [chatInput, setChatInput] = useLocalStorage('chat', '')
+  const [files, setFiles] = useState<FileList | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<'auto' | TemplateId>('auto')
   const [languageModel, setLanguageModel] = useLocalStorage<LLMModelConfig>('languageModel', {
     model: 'claude-3-5-sonnet-20240620'
@@ -41,14 +33,17 @@ export default function Home() {
 
   const [result, setResult] = useState<ExecutionResult>()
   const [messages, setMessages] = useState<Message[]>([])
-
+  const [artifact, setArtifact] = useState<Partial<ArtifactSchema> | undefined>()
+  const [currentTab, setCurrentTab] = useState<'code' | 'artifact'>('code')
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false)
   const [isAuthDialogOpen, setAuthDialog] = useState(false)
-  const { session, apiKey } = useAuth(setAuthDialog)
+  const [authView, setAuthView] = useState<AuthViewType>('sign_in')
+  const { session, apiKey } = useAuth(setAuthDialog, setAuthView)
 
   const currentModel = modelsList.models.find(model => model.id === languageModel.model)
   const currentTemplate = selectedTemplate === 'auto' ? templates : { [selectedTemplate]: templates[selectedTemplate] }
 
-  const { object: artifact, submit, isLoading, stop, error } = useObject({
+  const { object, submit, isLoading, stop, error } = useObject({
     api: '/api/chat',
     schema,
     onFinish: async ({ object: artifact, error }) => {
@@ -67,25 +62,29 @@ export default function Home() {
 
         const result = await response.json()
         console.log('result', result)
+
         setResult(result)
+        setCurrentTab('artifact')
+        setIsPreviewLoading(false)
       }
     }
   })
 
   useEffect(() => {
-    if (artifact) {
+    if (object) {
+      setArtifact(object as ArtifactSchema)
       const lastAssistantMessage = messages.findLast(message => message.role === 'assistant')
       if (lastAssistantMessage) {
-        lastAssistantMessage.content = artifact.commentary || ''
+        lastAssistantMessage.content = [{ type: 'text', text: object.commentary || '' }, { type: 'code', text: object.code || '' }]
         lastAssistantMessage.meta = {
-          title: artifact.title,
-          description: artifact.description
+          title: object.title,
+          description: object.description
         }
       }
     }
-  }, [artifact])
+  }, [object])
 
-  function handleSubmitAuth (e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmitAuth (e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
     if (!session) {
@@ -96,25 +95,37 @@ export default function Home() {
       stop()
     }
 
+    const content: Message['content'] = [{ type: 'text', text: chatInput }]
+    const images = await toMessageImage(files)
+
+    if (images.length > 0) {
+      images.forEach(image => {
+        content.push({ type: 'image', image })
+      })
+    }
+
+    const updatedMessages = addMessage({
+      role: 'user',
+      content,
+    })
+
     submit({
       userID: session?.user?.id,
-      prompt: chatInput,
+      messages: toAISDKMessages(updatedMessages),
       template: currentTemplate,
       model: currentModel,
       config: languageModel,
     })
 
     addMessage({
-      role: 'user',
-      content: chatInput
-    })
-
-    addMessage({
       role: 'assistant',
-      content: 'Generating artifact...',
+      content: [{ type: 'text', text: 'Generating artifact...' }],
     })
 
     setChatInput('')
+    setFiles(null)
+    setCurrentTab('code')
+    setIsPreviewLoading(true)
 
     posthog.capture('chat_submit', {
       template: selectedTemplate,
@@ -124,10 +135,17 @@ export default function Home() {
 
   function addMessage (message: Message) {
     setMessages(previousMessages => [...previousMessages, message])
+    return [...messages, message]
   }
 
   function handleSaveInputChange (e: React.ChangeEvent<HTMLInputElement>) {
     setChatInput(e.target.value)
+  }
+
+  function handleFileChange (e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files) {
+      setFiles(e.target.files)
+    }
   }
 
   function logout () {
@@ -143,10 +161,19 @@ export default function Home() {
     posthog.capture('github_click')
   }
 
+  function handleNewChat () {
+    stop()
+    setMessages([])
+    setArtifact(undefined)
+    setResult(undefined)
+    setCurrentTab('code')
+    setIsPreviewLoading(false)
+  }
+
   return (
     <main className="flex min-h-screen max-h-screen">
       {
-        supabase && <AuthDialog open={isAuthDialogOpen} setOpen={setAuthDialog} supabase={supabase} />
+        supabase && <AuthDialog open={isAuthDialogOpen} setOpen={setAuthDialog} view={authView} supabase={supabase} />
       }
       <NavBar
         session={session}
@@ -159,19 +186,27 @@ export default function Home() {
         languageModel={languageModel}
         onLanguageModelChange={handleLanguageModelChange}
         onGitHubClick={handleGitHubClick}
+        onNewChat={handleNewChat}
         apiKeyConfigurable={!process.env.NEXT_PUBLIC_USE_HOSTED_MODELS}
         baseURLConfigurable={!process.env.NEXT_PUBLIC_USE_HOSTED_MODELS}
       />
 
       <div className="flex-1 flex space-x-8 w-full pt-36 pb-8 px-4">
         <Chat
+          isLoading={isLoading}
+          stop={stop}
           messages={messages}
           input={chatInput}
           handleInputChange={handleSaveInputChange}
           handleSubmit={handleSubmitAuth}
+          isMultiModal={currentModel?.multiModal || false}
+          files={files}
+          handleFileChange={handleFileChange}
         />
         <SideView
-          isLoading={isLoading}
+          selectedTab={currentTab}
+          onSelectedTabChange={setCurrentTab}
+          isLoading={isPreviewLoading}
           artifact={artifact as ArtifactSchema}
           result={result}
           selectedTemplate={artifact?.template as TemplateId}

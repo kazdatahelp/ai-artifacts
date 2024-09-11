@@ -1,10 +1,11 @@
+import { AuthViewType } from '@/lib/auth'
 import { Auth } from '@supabase/auth-ui-react'
 import {
   ThemeSupa
 } from '@supabase/auth-ui-shared'
 import { SupabaseClient } from '@supabase/supabase-js'
 
-function AuthForm({ supabase }: { supabase: SupabaseClient }) {
+function AuthForm({ supabase, view = 'sign_in' }: { supabase: SupabaseClient, view: AuthViewType }) {
   return (
     <div className="mx-auto flex flex-1 w-full justify-center items-center flex-col">
       <h1 className="text-4xl font-bold mt-8 mb-4">
@@ -20,7 +21,12 @@ function AuthForm({ supabase }: { supabase: SupabaseClient }) {
                 colors: {
                   brand: 'rgb(255, 136, 0)',
                   brandAccent: 'rgb(255, 136, 0)',
+                  inputText: '#FFF',
                 },
+                radii: {
+                  borderRadiusButton: '20px',
+                  inputBorderRadius: '12px'
+                }
               },
             },
           }}
@@ -32,7 +38,7 @@ function AuthForm({ supabase }: { supabase: SupabaseClient }) {
               },
             },
           }}
-          view='sign_in'
+          view={view}
           theme='default'
           showLinks={true}
           providers={['github']}

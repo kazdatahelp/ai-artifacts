@@ -86,11 +86,11 @@ export function SideView({
               <RotateCw className="h-4 w-4" />
             </Button>
           )}
-          {result && (
+          {/* {result && (
             <Button disabled={!isLinkAvailable} variant="ghost" className='h-8 rounded-md px-3 text-muted-foreground' title='Download Artifact' onClick={() => download(artifact.file_path, artifact.code)}>
               <Download className="h-4 w-4" />
             </Button>
-          )}
+          )} */}
           {result && (
             <Button variant="ghost" className='h-8 rounded-md px-3 text-muted-foreground' title='Copy URL' onClick={() => copy(result.url!)}>
               <Copy className="h-4 w-4" />
@@ -106,7 +106,7 @@ export function SideView({
           <div className="w-full flex-1 flex flex-col items-start justify-start overflow-y-auto">
             <TabsContent value="code" className="flex-1 w-full">
               {artifact.code &&
-                <CodeView code={artifact.code} lang={artifact.file_path?.split('.').pop() || ''}/>
+                <CodeView code={artifact.code.map(code => code.file_content).join('\n')} lang={artifact.code?.[0]?.file_path?.split('.').pop() || ''}/>
               }
             </TabsContent>
             <TabsContent value="artifact" className="flex-1 w-full flex flex-col items-start justify-start">

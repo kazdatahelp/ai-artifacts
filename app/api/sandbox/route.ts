@@ -49,14 +49,11 @@ export async function POST(req: Request) {
       await sbx.files.write(file.file_path, file.file_content)
       console.log(`Copied file to ${file.file_path} in ${sbx.sandboxID}`)
     })
-  } else {
-    await sbx.files.write(artifact.file_path, artifact.code)
-    console.log(`Copied file to ${artifact.file_path} in ${sbx.sandboxID}`)
   }
 
   // Execute code or return a URL to the running sandbox
   if (artifact.template === 'code-interpreter-multilang') {
-    const result = await (sbx as CodeInterpreter).notebook.execCell(artifact.code || '')
+    const result = await (sbx as CodeInterpreter).notebook.execCell(artifact.code[0].file_content || '')
     await (sbx as CodeInterpreter).close()
     return new Response(JSON.stringify({
       template: artifact.template,

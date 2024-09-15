@@ -44,7 +44,7 @@ export default function Home() {
   const currentTemplate = selectedTemplate === 'auto' ? templates : { [selectedTemplate]: templates[selectedTemplate] }
 
   const { object, submit, isLoading, stop, error } = useObject({
-    api: '/api/chat',
+    api: currentModel?.id === 'o1-preview' || currentModel?.id === 'o1-mini' ? '/api/chat-o1' : '/api/chat',
     schema,
     onFinish: async ({ object: artifact, error }) => {
       if (!error) {
@@ -75,7 +75,7 @@ export default function Home() {
       setArtifact(object as ArtifactSchema)
       const lastAssistantMessage = messages.findLast(message => message.role === 'assistant')
       if (lastAssistantMessage) {
-        lastAssistantMessage.content = [{ type: 'text', text: object.commentary || '' }, { type: 'code', text: object.code || '' }]
+        lastAssistantMessage.content = [{ type: 'text', text: object.commentary || '' }, { type: 'code', text: object.code?.map(code => code?.file_content).join('\n') || '' }]
         lastAssistantMessage.meta = {
           title: object.title,
           description: object.description
